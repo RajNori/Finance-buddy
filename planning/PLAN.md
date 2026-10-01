@@ -64,7 +64,7 @@ The user runs a single Docker command (or a provided start script). A browser op
 
 - **Frontend**: Next.js with TypeScript, built as a static export (`output: 'export'`), served by FastAPI as static files
 - **Backend**: FastAPI (Python), managed as a `uv` project
-- **Database**: SQLite, single file at `db/financebuddy.db`, volume-mounted for persistence
+- **Database**: selected by `DATABASE_URL` via SQLAlchemy. Local/Docker default is SQLite at `db/financebuddy.db` (volume-mounted); production on AWS uses RDS Postgres
 - **Real-time data**: Server-Sent Events (SSE) — simpler than WebSockets, one-way server→client push, works everywhere
 - **AI integration**: LiteLLM → OpenRouter (Cerebras for fast inference), with structured outputs for trade execution
 - **Market data**: Environment-variable driven — simulator by default, real data via Massive API if key provided
@@ -75,7 +75,7 @@ The user runs a single Docker command (or a provided start script). A browser op
 |---|---|
 | SSE over WebSockets | One-way push is all we need; simpler, no bidirectional complexity, universal browser support |
 | Static Next.js export | Single origin, no CORS issues, one port, one container, simple deployment |
-| SQLite over Postgres | No auth = no multi-user = no need for a database server; self-contained, zero config |
+| SQLite locally, Postgres in production | Zero-config local runs; durable managed storage on AWS. One SQLAlchemy code path, switched by `DATABASE_URL` |
 | Single Docker container | Students run one command; no docker-compose for production, no service orchestration |
 | uv for Python | Fast, modern Python project management; reproducible lockfile; what students should learn |
 | Market orders only | Eliminates order book, limit order logic, partial fills — dramatically simpler portfolio math |
@@ -100,6 +100,7 @@ financebuddy/
 ├── test/                     # Playwright E2E tests + docker-compose.test.yml
 ├── db/                       # Volume mount target (SQLite file lives here at runtime)
 │   └── .gitkeep              # Directory exists in repo; financebuddy.db is gitignored
+├── infra/                    # Terraform for AWS (see infra/README.md)
 ├── Dockerfile                # Multi-stage build (Node → Python)
 ├── docker-compose.yml        # Optional convenience wrapper
 ├── .env                      # Environment variables (gitignored, .env.example committed)
@@ -130,6 +131,10 @@ MASSIVE_API_KEY=
 
 # Optional: Set to "true" for deterministic mock LLM responses (testing)
 LLM_MOCK=false
+
+# Optional: SQLAlchemy URL. Defaults to sqlite:///db/financebuddy.db.
+# On AWS this is injected from Secrets Manager (postgresql+psycopg://...)
+DATABASE_URL=
 ```
 
 ### Behavior
@@ -183,9 +188,11 @@ Both the simulator and the Massive client implement the same abstract interface.
 
 ## 7. Database
 
-### SQLite with Lazy Initialization
+### Lazy Initialization (SQLite or Postgres)
 
-The backend checks for the SQLite database on startup (or first request). If the file doesn't exist or tables are missing, it creates the schema and seeds default data. This means:
+All database access goes through SQLAlchemy using `DATABASE_URL` (default `sqlite:///db/financebuddy.db`). Schema DDL must stay portable across SQLite and Postgres: no SQLite-only types or pragmas in shared code.
+
+The backend checks for the database on startup (or first request). If the file doesn't exist or tables are missing, it creates the schema and seeds default data. This means:
 
 - No separate migration step
 - No manual database setup
@@ -376,7 +383,7 @@ The frontend is a single-page application with a dense, terminal-inspired layout
 ### Multi-Stage Dockerfile
 
 ```
-Stage 1: Node 20 slim
+Stage 1: Node 22 slim
   - Copy frontend/
   - npm install && npm run build (produces static export)
 
@@ -417,9 +424,18 @@ The `db/` directory in the project root maps to `/app/db` in the container. The 
 
 All scripts should be idempotent — safe to run multiple times.
 
-### Optional Cloud Deployment
+### AWS Deployment
 
-The container is designed to deploy to AWS App Runner, Render, or any container platform. A Terraform configuration for App Runner may be provided in a `deploy/` directory as a stretch goal, but is not part of the core build.
+Production runs on AWS (`ap-southeast-2`), fully defined in Terraform under `infra/`. See `infra/README.md` for the runbook.
+
+- **Compute**: ECS Fargate, single task (the simulator is in-process), rolling deploys with circuit-breaker rollback
+- **Edge**: ALB (HTTPS via ACM when a domain is set) + WAF with a per-IP rate limit on `/api/chat`
+- **Database**: RDS Postgres 17, private subnets, TLS enforced, 7-day backups
+- **Secrets**: Secrets Manager (`OPENROUTER_API_KEY`, `DATABASE_URL`, optional `MASSIVE_API_KEY`) injected as env vars
+- **CI/CD**: GitHub Actions `CI` (tests, lint, Terraform validate, image build) then `Deploy` (OIDC → ECR → ECS), gated by the `production` environment
+- **Observability**: CloudWatch logs + Container Insights, SNS email alarms, monthly budget alert
+
+The same image runs locally and on AWS; only environment variables differ.
 
 ---
 

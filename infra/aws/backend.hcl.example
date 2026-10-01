@@ -1,0 +1,6 @@
+# Copy to backend.hcl (gitignored). The bootstrap stack prints the exact values.
+bucket       = "financebuddy-tfstate-<account-id>-ap-southeast-2"
+key          = "financebuddy/prod/terraform.tfstate"
+region       = "ap-southeast-2"
+encrypt      = true
+use_lockfile = true
