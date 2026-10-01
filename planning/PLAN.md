@@ -454,3 +454,44 @@ The container is designed to deploy to AWS App Runner, Render, or any container 
 - Portfolio visualization: heatmap renders with correct colors, P&L chart has data points
 - AI chat (mocked): send a message, receive a response, trade execution appears inline
 - SSE resilience: disconnect and verify reconnection
+
+---
+
+## 13. Review: Questions, Clarifications and Simplifications
+
+### Questions / gaps
+
+1. **Daily change %** (§10 watchlist) — the price cache holds only latest and previous tick, so there is no "daily" reference. Define it: change since session start, since the seed price, or since previous close (Massive only)? The simulator has no previous close.
+2. **Ticker validation on add** — with the simulator, what happens when the user adds an unknown ticker (e.g. `PYPL`, `ZZZZ`)? Is there a seed price/default GBM params for arbitrary tickers, or is the add rejected? Same question for LLM `watchlist_changes` and manual trades on non-watched tickers.
+3. **Trading a non-watched ticker** — trades need a price from the cache. Must the ticker be on the watchlist? Does removing a watched ticker with an open position drop it from the price source (leaving the position unpriced)? Suggest: the price source tracks the union of watchlist and positions.
+4. **Trade validation rules** — fractional quantity minimum, rounding of `cash_balance`/`avg_cost` (REAL floats accumulate error), and whether sells to zero delete the position row. Specify: reject `quantity <= 0`, delete the row at 0, round to cents for cash.
+5. **Atomicity** — trade execution updates cash, positions, trades and a snapshot. State that these run in one SQLite transaction, and that LLM-driven trades run sequentially with each failure reported individually.
+6. **Chat history window** — how many past messages are sent to the LLM? Suggest the last 20, to cap latency and cost.
+7. **LLM failure modes** — behaviour on timeout, malformed JSON, or missing `OPENROUTER_API_KEY` when `LLM_MOCK=false`. Suggest a user-visible error message, no retries, and the app still starting without the key.
+8. **Market hours** — the simulator runs 24/7 while Massive returns stale data off-hours. Is that acceptable, and should the UI indicate it?
+9. **Snapshot growth** — 30s snapshots grow unbounded (~2,900 rows/day). Is a retention or downsampling rule needed, or is it fine for a demo?
+10. **Security of the Docker setup** — `.env` holds the OpenRouter key. Confirm `.env` is gitignored and that only `.env.example` is committed.
+
+### Inconsistencies to fix
+
+- **§4 vs §5/§11:** `db/` at the root is a volume mount target, while `backend/db/` holds schema and seed code. Two `db/` directories are confusing; consider `backend/app/db/` for code and keep `db/` for runtime data only.
+- **§8 lists `DELETE /api/watchlist/{ticker}`** but not a ticker-validation error contract. Add a short error-response shape (e.g. `{"error": "..."}` with 400/404) used by all endpoints and by the chat action results.
+- **§9** names "the cerebras-inference skill" while the repo's skill lives at `.claude/skills/cerebras/`. Reference the path or the skill name consistently.
+- **§12** has the E2E tests in `test/` with Playwright in a separate container, while §11 states a single container for production. Fine, but say explicitly that the test compose file is the only multi-container setup.
+
+### Opportunities to simplify
+
+- **Drop `user_id` columns** — the plan says single-user, hardcoded `"default"`. This adds a column and a composite unique key on every table for a feature that is not planned. Cheaper to add in a migration if multi-user ever arrives. (Keep it only if the course wants the multi-user story.)
+- **`users_profile` table** — a single row holding only `cash_balance`; could be a key/value `settings` table or a constant row. Low value either way.
+- **Snapshots** — instead of a background task plus snapshot-after-trade, compute the P&L chart from `trades` plus price history? No — price history is not stored, so snapshots are the simplest. Keep, but record every 60s instead of 30s to halve the volume.
+- **Windows scripts** — `start_windows.ps1`/`stop_windows.ps1` double the script surface. Ship macOS/Linux first; add PowerShell only if a Windows user needs it.
+- **`docker-compose.yml`** — described as optional and duplicates the start script. Pick one entry point (the scripts) and drop the compose file for production.
+- **Treemap and sparklines** — both are scoped as must-haves. If time is tight, the treemap is the costlier of the two (extra charting dependency); a coloured positions table already conveys P&L.
+- **Massive polling** — two data sources double the test and maintenance surface. They are already built, so keep them, but treat the simulator as the only supported path for the E2E tests.
+
+### Suggested build order
+
+1. Backend core: DB init/seed, portfolio and watchlist endpoints, trade validation, with tests.
+2. Chat endpoint with `LLM_MOCK`, then the real LiteLLM path.
+3. Frontend skeleton wired to SSE, then portfolio and chat panels.
+4. Dockerfile, scripts, Playwright E2E.
