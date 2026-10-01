@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+
+alarm_email = "you@example.com"
+
+# Optional: HTTPS on your own domain (requires a Route 53 public hosted zone).
+# domain_name       = "financebuddy.rajnori.net"
+# route53_zone_name = "rajnori.net"
+
+# Optional: real market data instead of the simulator.
+# enable_massive = true
+
+# Production hardening (higher cost):
+# single_nat_gateway = false
+# db_multi_az        = true
