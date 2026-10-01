@@ -1,1 +1,1 @@
-"""Tests for FinAlly backend."""
+"""Tests for Financebuddy backend."""

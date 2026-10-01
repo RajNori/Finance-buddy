@@ -1,4 +1,4 @@
-"""Market data subsystem for FinAlly.
+"""Market data subsystem for Financebuddy.
 
 Public API:
     PriceUpdate         - Immutable price snapshot dataclass
