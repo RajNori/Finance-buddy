@@ -18,7 +18,7 @@ data "aws_iam_policy_document" "ecs_tasks_assume" {
 # Execution role: used by the ECS agent to pull the image, write logs and
 # resolve secrets into env vars. The app itself never sees these permissions.
 resource "aws_iam_role" "execution" {
-  name               = "${local.name}-ecs-execution"
+  name               = "${var.name}-ecs-execution"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
 }
 
@@ -30,10 +30,10 @@ resource "aws_iam_role_policy_attachment" "execution_managed" {
 locals {
   app_secret_arns = concat(
     [
-      aws_secretsmanager_secret.openrouter_api_key.arn,
+      var.openrouter_secret_arn,
       aws_secretsmanager_secret.database_url.arn,
     ],
-    aws_secretsmanager_secret.massive_api_key[*].arn,
+    compact([var.massive_secret_arn]),
   )
 }
 
@@ -53,7 +53,7 @@ resource "aws_iam_role_policy" "execution_secrets" {
 # Task role: the app's own identity. Only ECS Exec for now (shell access for
 # debugging, audited via CloudTrail).
 resource "aws_iam_role" "task" {
-  name               = "${local.name}-ecs-task"
+  name               = "${var.name}-ecs-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
 }
 
@@ -78,7 +78,7 @@ resource "aws_iam_role_policy" "task_exec" {
 # --- ECS --------------------------------------------------------------------
 
 resource "aws_ecs_cluster" "main" {
-  name = local.name
+  name = var.name
 
   setting {
     name  = "containerInsights"
@@ -87,22 +87,22 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_cloudwatch_log_group" "app" {
-  name              = "/ecs/${local.name}"
+  name              = "/ecs/${var.name}"
   retention_in_days = var.log_retention_days
 }
 
 locals {
   app_secrets = concat(
     [
-      { name = "OPENROUTER_API_KEY", valueFrom = aws_secretsmanager_secret.openrouter_api_key.arn },
+      { name = "OPENROUTER_API_KEY", valueFrom = var.openrouter_secret_arn },
       { name = "DATABASE_URL", valueFrom = aws_secretsmanager_secret.database_url.arn },
     ],
-    [for s in aws_secretsmanager_secret.massive_api_key : { name = "MASSIVE_API_KEY", valueFrom = s.arn }],
+    [for arn in compact([var.massive_secret_arn]) : { name = "MASSIVE_API_KEY", valueFrom = arn }],
   )
 }
 
 resource "aws_ecs_task_definition" "app" {
-  family                   = local.name
+  family                   = var.name
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = var.task_cpu
@@ -117,7 +117,7 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([{
     name      = local.container_name
-    image     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
+    image     = "${var.ecr_repository_url}:${var.image_tag}"
     essential = true
 
     portMappings = [{ containerPort = local.container_port, protocol = "tcp" }]
@@ -144,7 +144,7 @@ resource "aws_ecs_task_definition" "app" {
       logDriver = "awslogs"
       options = {
         awslogs-group         = aws_cloudwatch_log_group.app.name
-        awslogs-region        = var.region
+        awslogs-region        = local.region
         awslogs-stream-prefix = local.container_name
       }
     }

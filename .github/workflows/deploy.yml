@@ -7,6 +7,8 @@ name: Deploy
 # Required repository variables (Settings -> Secrets and variables -> Variables),
 # all printed by `terraform output` in infra/aws:
 #   AWS_REGION, AWS_DEPLOY_ROLE_ARN, ECR_REPOSITORY, ECS_CLUSTER, ECS_SERVICE, ECS_TASK_FAMILY
+#   RUNTIME_ENABLED: "true" while the AWS runtime is up. Otherwise merges skip
+#   deploying, and a manual run only pushes the image to ECR.
 
 on:
   workflow_run:
@@ -25,7 +27,9 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && vars.RUNTIME_ENABLED == 'true')
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -62,12 +66,14 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Fetch current task definition
+        if: vars.RUNTIME_ENABLED == 'true'
         run: |
           aws ecs describe-task-definition \
             --task-definition "${{ vars.ECS_TASK_FAMILY }}" \
             --query taskDefinition > task-definition.json
 
       - name: Render task definition with new image
+        if: vars.RUNTIME_ENABLED == 'true'
         id: render
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
@@ -76,6 +82,7 @@ jobs:
           image: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
       - name: Deploy to ECS
+        if: vars.RUNTIME_ENABLED == 'true'
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.render.outputs.task-definition }}
@@ -85,6 +92,7 @@ jobs:
           wait-for-minutes: 15
 
       - name: Smoke test
+        if: vars.RUNTIME_ENABLED == 'true'
         id: url
         run: |
           app_url="${{ vars.APP_URL }}"

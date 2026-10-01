@@ -29,18 +29,6 @@ provider "aws" {
   }
 }
 
-data "aws_caller_identity" "current" {}
-data "aws_partition" "current" {}
-
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
 locals {
-  name           = "${var.project}-${var.environment}"
-  azs            = slice(data.aws_availability_zones.available.names, 0, 2)
-  container_name = "app"
-  container_port = 8000
-  use_https      = var.domain_name != ""
-  account_id     = data.aws_caller_identity.current.account_id
+  name = "${var.project}-${var.environment}"
 }

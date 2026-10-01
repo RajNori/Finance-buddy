@@ -428,6 +428,8 @@ All scripts should be idempotent — safe to run multiple times.
 
 Production runs on AWS (`ap-southeast-2`), fully defined in Terraform under `infra/`. See `infra/README.md` for the runbook.
 
+Pre-launch the stack is **dormant** (~US$0.70/month: ECR, secrets, deploy role, budget). The runtime below is spun up on demand with `scripts/aws_up.sh` (~US$0.18/hour) and torn down with `scripts/aws_down.sh`.
+
 - **Compute**: ECS Fargate, single task (the simulator is in-process), rolling deploys with circuit-breaker rollback
 - **Edge**: ALB (HTTPS via ACM when a domain is set) + WAF with a per-IP rate limit on `/api/chat`
 - **Database**: RDS Postgres 17, private subnets, TLS enforced, 7-day backups

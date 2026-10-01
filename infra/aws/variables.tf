@@ -1,3 +1,12 @@
+variable "runtime_enabled" {
+  description = <<-EOT
+    Billable runtime (VPC, NAT, ALB, WAF, ECS, RDS) at ~US$0.18/hour.
+    false = dormant: only ECR, secrets, deploy role and budget (~US$0.70/month).
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "region" {
   description = "AWS region. Sydney keeps latency low for AU users."
   type        = string
@@ -38,9 +47,9 @@ variable "alarm_email" {
 }
 
 variable "monthly_budget_usd" {
-  description = "Account-level monthly budget; alerts at 80% forecast and 100% actual."
+  description = "Account-level monthly budget; alerts at 80% actual and 100% forecast."
   type        = number
-  default     = 200
+  default     = 5
 }
 
 # --- Networking -------------------------------------------------------------
@@ -133,8 +142,15 @@ variable "db_multi_az" {
 }
 
 variable "db_deletion_protection" {
-  type    = bool
-  default = true
+  description = "Set true once live. Must be false for spin-down to delete the DB."
+  type        = bool
+  default     = false
+}
+
+variable "db_skip_final_snapshot" {
+  description = "true while pre-launch (data is re-seeded on spin-up). Set false once live."
+  type        = bool
+  default     = true
 }
 
 # --- Edge protection --------------------------------------------------------

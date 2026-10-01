@@ -1,10 +1,10 @@
 # Least-privilege chain: internet -> ALB -> app tasks -> RDS.
 
 resource "aws_security_group" "alb" {
-  name        = "${local.name}-alb"
+  name        = "${var.name}-alb"
   description = "Public HTTP/HTTPS to the load balancer"
   vpc_id      = aws_vpc.main.id
-  tags        = { Name = "${local.name}-alb" }
+  tags        = { Name = "${var.name}-alb" }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
@@ -36,10 +36,10 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_app" {
 }
 
 resource "aws_security_group" "app" {
-  name        = "${local.name}-app"
+  name        = "${var.name}-app"
   description = "ECS tasks; reachable only from the ALB"
   vpc_id      = aws_vpc.main.id
-  tags        = { Name = "${local.name}-app" }
+  tags        = { Name = "${var.name}-app" }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "app_from_alb" {
@@ -70,10 +70,10 @@ resource "aws_vpc_security_group_egress_rule" "app_to_db" {
 }
 
 resource "aws_security_group" "db" {
-  name        = "${local.name}-db"
+  name        = "${var.name}-db"
   description = "RDS Postgres; reachable only from app tasks"
   vpc_id      = aws_vpc.main.id
-  tags        = { Name = "${local.name}-db" }
+  tags        = { Name = "${var.name}-db" }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "db_from_app" {

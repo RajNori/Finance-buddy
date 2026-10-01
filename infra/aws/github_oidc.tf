@@ -67,33 +67,43 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = [aws_ecr_repository.app.arn]
   }
 
-  statement {
-    sid = "TaskDefinitions"
-    # These actions do not support resource-level permissions.
-    actions = [
-      "ecs:DescribeTaskDefinition",
-      "ecs:RegisterTaskDefinition",
-    ]
-    resources = ["*"]
+  # ECS permissions exist only while the runtime is up.
+  dynamic "statement" {
+    for_each = local.runtime == null ? [] : [1]
+    content {
+      sid = "TaskDefinitions"
+      # These actions do not support resource-level permissions.
+      actions = [
+        "ecs:DescribeTaskDefinition",
+        "ecs:RegisterTaskDefinition",
+      ]
+      resources = ["*"]
+    }
   }
 
-  statement {
-    sid = "DeployService"
-    actions = [
-      "ecs:DescribeServices",
-      "ecs:UpdateService",
-    ]
-    resources = [aws_ecs_service.app.id]
+  dynamic "statement" {
+    for_each = local.runtime == null ? [] : [1]
+    content {
+      sid = "DeployService"
+      actions = [
+        "ecs:DescribeServices",
+        "ecs:UpdateService",
+      ]
+      resources = [local.runtime.ecs_service_arn]
+    }
   }
 
-  statement {
-    sid       = "PassTaskRoles"
-    actions   = ["iam:PassRole"]
-    resources = [aws_iam_role.execution.arn, aws_iam_role.task.arn]
-    condition {
-      test     = "StringEquals"
-      variable = "iam:PassedToService"
-      values   = ["ecs-tasks.amazonaws.com"]
+  dynamic "statement" {
+    for_each = local.runtime == null ? [] : [1]
+    content {
+      sid       = "PassTaskRoles"
+      actions   = ["iam:PassRole"]
+      resources = [local.runtime.execution_role_arn, local.runtime.task_role_arn]
+      condition {
+        test     = "StringEquals"
+        variable = "iam:PassedToService"
+        values   = ["ecs-tasks.amazonaws.com"]
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
-output "app_url" {
-  value = local.use_https ? "https://${var.domain_name}" : "http://${aws_lb.main.dns_name}"
+output "runtime_enabled" {
+  value = var.runtime_enabled
 }
 
 output "aws_region" {
@@ -13,21 +13,6 @@ output "ecr_repository" {
 
 output "ecr_repository_url" {
   value = aws_ecr_repository.app.repository_url
-}
-
-output "ecs_cluster" {
-  description = "GitHub variable ECS_CLUSTER"
-  value       = aws_ecs_cluster.main.name
-}
-
-output "ecs_service" {
-  description = "GitHub variable ECS_SERVICE"
-  value       = aws_ecs_service.app.name
-}
-
-output "ecs_task_family" {
-  description = "GitHub variable ECS_TASK_FAMILY"
-  value       = aws_ecs_task_definition.app.family
 }
 
 output "github_deploy_role_arn" {
@@ -44,6 +29,27 @@ output "massive_secret_id" {
   value = one(aws_secretsmanager_secret.massive_api_key[*].name)
 }
 
+# --- Runtime (null while dormant) -------------------------------------------
+
+output "app_url" {
+  value = try(local.runtime.app_url, null)
+}
+
+output "ecs_cluster" {
+  description = "GitHub variable ECS_CLUSTER"
+  value       = try(local.runtime.ecs_cluster, null)
+}
+
+output "ecs_service" {
+  description = "GitHub variable ECS_SERVICE"
+  value       = try(local.runtime.ecs_service, null)
+}
+
+output "ecs_task_family" {
+  description = "GitHub variable ECS_TASK_FAMILY"
+  value       = try(local.runtime.ecs_task_family, null)
+}
+
 output "db_endpoint" {
-  value = aws_db_instance.main.address
+  value = try(local.runtime.db_endpoint, null)
 }

@@ -2,6 +2,12 @@
 
 alarm_email = "you@example.com"
 
+# Dormant by default (~US$0.70/month). Use scripts/aws_up.sh / aws_down.sh for demos.
+# At launch: runtime_enabled = true, db_deletion_protection = true,
+# db_skip_final_snapshot = false, and raise monthly_budget_usd.
+# runtime_enabled = false
+# monthly_budget_usd = 5
+
 # Optional: HTTPS on your own domain (requires a Route 53 public hosted zone).
 # domain_name       = "financebuddy.rajnori.net"
 # route53_zone_name = "rajnori.net"

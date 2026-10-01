@@ -1,21 +1,9 @@
-resource "aws_sns_topic" "alerts" {
-  name = "${local.name}-alerts"
-}
-
-resource "aws_sns_topic_subscription" "alerts_email" {
-  topic_arn = aws_sns_topic.alerts.arn
-  protocol  = "email"
-  endpoint  = var.alarm_email
-}
-
 locals {
-  alarm_actions = [aws_sns_topic.alerts.arn]
+  alarm_actions = [var.alarm_topic_arn]
 }
-
-# --- Availability -----------------------------------------------------------
 
 resource "aws_cloudwatch_metric_alarm" "no_running_tasks" {
-  alarm_name          = "${local.name}-no-running-tasks"
+  alarm_name          = "${var.name}-no-running-tasks"
   alarm_description   = "App service has no running tasks"
   namespace           = "ECS/ContainerInsights"
   metric_name         = "RunningTaskCount"
@@ -34,7 +22,7 @@ resource "aws_cloudwatch_metric_alarm" "no_running_tasks" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "unhealthy_targets" {
-  alarm_name          = "${local.name}-unhealthy-targets"
+  alarm_name          = "${var.name}-unhealthy-targets"
   alarm_description   = "ALB reports unhealthy app targets"
   namespace           = "AWS/ApplicationELB"
   metric_name         = "UnHealthyHostCount"
@@ -53,7 +41,7 @@ resource "aws_cloudwatch_metric_alarm" "unhealthy_targets" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "target_5xx" {
-  alarm_name          = "${local.name}-target-5xx"
+  alarm_name          = "${var.name}-target-5xx"
   alarm_description   = "App is returning 5xx responses"
   namespace           = "AWS/ApplicationELB"
   metric_name         = "HTTPCode_Target_5XX_Count"
@@ -69,10 +57,8 @@ resource "aws_cloudwatch_metric_alarm" "target_5xx" {
   alarm_actions = local.alarm_actions
 }
 
-# --- Database ---------------------------------------------------------------
-
 resource "aws_cloudwatch_metric_alarm" "db_cpu" {
-  alarm_name          = "${local.name}-db-cpu"
+  alarm_name          = "${var.name}-db-cpu"
   namespace           = "AWS/RDS"
   metric_name         = "CPUUtilization"
   statistic           = "Average"
@@ -86,7 +72,7 @@ resource "aws_cloudwatch_metric_alarm" "db_cpu" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "db_storage" {
-  alarm_name          = "${local.name}-db-free-storage"
+  alarm_name          = "${var.name}-db-free-storage"
   namespace           = "AWS/RDS"
   metric_name         = "FreeStorageSpace"
   statistic           = "Minimum"
@@ -97,30 +83,4 @@ resource "aws_cloudwatch_metric_alarm" "db_storage" {
   dimensions          = { DBInstanceIdentifier = aws_db_instance.main.identifier }
   alarm_actions       = local.alarm_actions
   ok_actions          = local.alarm_actions
-}
-
-# --- Cost -------------------------------------------------------------------
-
-resource "aws_budgets_budget" "monthly" {
-  name         = "${local.name}-monthly"
-  budget_type  = "COST"
-  limit_amount = tostring(var.monthly_budget_usd)
-  limit_unit   = "USD"
-  time_unit    = "MONTHLY"
-
-  notification {
-    comparison_operator        = "GREATER_THAN"
-    threshold                  = 80
-    threshold_type             = "PERCENTAGE"
-    notification_type          = "FORECASTED"
-    subscriber_email_addresses = [var.alarm_email]
-  }
-
-  notification {
-    comparison_operator        = "GREATER_THAN"
-    threshold                  = 100
-    threshold_type             = "PERCENTAGE"
-    notification_type          = "ACTUAL"
-    subscriber_email_addresses = [var.alarm_email]
-  }
 }

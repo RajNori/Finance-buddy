@@ -1,66 +1,15 @@
-# --- Container registry -----------------------------------------------------
-
-resource "aws_ecr_repository" "app" {
-  name                 = var.project
-  image_tag_mutability = "IMMUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  encryption_configuration {
-    encryption_type = "AES256"
-  }
-}
-
-resource "aws_ecr_lifecycle_policy" "app" {
-  repository = aws_ecr_repository.app.name
-  policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Keep the 30 most recent images"
-      selection = {
-        tagStatus   = "any"
-        countType   = "imageCountMoreThan"
-        countNumber = 30
-      }
-      action = { type = "expire" }
-    }]
-  })
-}
-
-# --- Application secrets ----------------------------------------------------
-# Terraform creates the containers only. Values are set out-of-band so they
-# never touch state:
-#   aws secretsmanager put-secret-value --secret-id <name> --secret-string '<key>'
-
-resource "aws_secretsmanager_secret" "openrouter_api_key" {
-  name                    = "${local.name}/openrouter-api-key"
-  description             = "OpenRouter API key for LLM chat"
-  recovery_window_in_days = 7
-}
-
-resource "aws_secretsmanager_secret" "massive_api_key" {
-  count                   = var.enable_massive ? 1 : 0
-  name                    = "${local.name}/massive-api-key"
-  description             = "Massive (Polygon.io) market data API key"
-  recovery_window_in_days = 7
-}
-
-# --- Database ---------------------------------------------------------------
-
 resource "random_password" "db" {
   length  = 32
   special = false # URL-safe; embedded in DATABASE_URL
 }
 
 resource "aws_db_subnet_group" "main" {
-  name       = local.name
+  name       = var.name
   subnet_ids = aws_subnet.data[*].id
 }
 
 resource "aws_db_parameter_group" "main" {
-  name   = "${local.name}-pg17"
+  name   = "${var.name}-pg17"
   family = "postgres17"
 
   parameter {
@@ -75,7 +24,7 @@ resource "aws_db_parameter_group" "main" {
 }
 
 resource "aws_db_instance" "main" {
-  identifier     = local.name
+  identifier     = var.name
   engine         = "postgres"
   engine_version = "17"
   instance_class = var.db_instance_class
@@ -85,8 +34,8 @@ resource "aws_db_instance" "main" {
   storage_type          = "gp3"
   storage_encrypted     = true
 
-  db_name  = var.project
-  username = var.project
+  db_name  = var.db_name
+  username = var.db_name
   password = random_password.db.result
 
   db_subnet_group_name   = aws_db_subnet_group.main.name
@@ -105,14 +54,20 @@ resource "aws_db_instance" "main" {
   enabled_cloudwatch_logs_exports = ["postgresql"]
 
   deletion_protection       = var.db_deletion_protection
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "${local.name}-final"
+  skip_final_snapshot       = var.db_skip_final_snapshot
+  final_snapshot_identifier = var.db_skip_final_snapshot ? null : "${var.name}-final-${formatdate("YYYYMMDDhhmm", timestamp())}"
+
+  lifecycle {
+    ignore_changes = [final_snapshot_identifier]
+  }
 }
 
+# Lives and dies with the database, so no recovery window: a later spin-up
+# must be able to recreate the same name immediately.
 resource "aws_secretsmanager_secret" "database_url" {
-  name                    = "${local.name}/database-url"
+  name                    = "${var.name}/database-url"
   description             = "SQLAlchemy URL for the app (Postgres on RDS)"
-  recovery_window_in_days = 7
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "database_url" {

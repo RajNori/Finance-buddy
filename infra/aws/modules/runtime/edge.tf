@@ -1,7 +1,7 @@
 # --- Application Load Balancer ----------------------------------------------
 
 resource "aws_lb" "main" {
-  name                       = local.name
+  name                       = var.name
   load_balancer_type         = "application"
   internal                   = false
   security_groups            = [aws_security_group.alb.id]
@@ -11,7 +11,7 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "app" {
-  name                 = local.name
+  name                 = var.name
   port                 = local.container_port
   protocol             = "HTTP"
   target_type          = "ip"
@@ -136,7 +136,7 @@ resource "aws_route53_record" "app" {
 
 resource "aws_wafv2_web_acl" "main" {
   count = var.enable_waf ? 1 : 0
-  name  = local.name
+  name  = var.name
   scope = "REGIONAL"
 
   default_action {
@@ -237,7 +237,7 @@ resource "aws_wafv2_web_acl" "main" {
 
   visibility_config {
     cloudwatch_metrics_enabled = true
-    metric_name                = local.name
+    metric_name                = var.name
     sampled_requests_enabled   = true
   }
 }
