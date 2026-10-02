@@ -101,3 +101,25 @@ class TestPriceCache:
         cache = PriceCache()
         update = cache.update("AAPL", 190.12345)
         assert update.price == 190.12
+
+
+def test_session_open_is_first_price_and_survives_updates():
+    from app.market import PriceCache
+
+    cache = PriceCache()
+    cache.update("AAPL", 100.0)
+    update = cache.update("AAPL", 110.0)
+
+    assert update.session_open == 100.0
+    assert update.session_change_percent == 10.0
+    assert update.to_dict()["session_change_percent"] == 10.0
+
+
+def test_session_open_resets_after_remove():
+    from app.market import PriceCache
+
+    cache = PriceCache()
+    cache.update("AAPL", 100.0)
+    cache.remove("AAPL")
+
+    assert cache.update("AAPL", 120.0).session_open == 120.0

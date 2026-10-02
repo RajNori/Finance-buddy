@@ -47,7 +47,8 @@ USER app
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION} \
-    PORT=8000
+    PORT=8000 \
+    DATABASE_URL=sqlite:////app/db/financebuddy.db
 
 EXPOSE 8000
 

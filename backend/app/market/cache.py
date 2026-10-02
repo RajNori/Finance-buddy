@@ -30,12 +30,14 @@ class PriceCache:
             ts = timestamp or time.time()
             prev = self._prices.get(ticker)
             previous_price = prev.price if prev else price
+            session_open = prev.session_open if prev else round(price, 2)
 
             update = PriceUpdate(
                 ticker=ticker,
                 price=round(price, 2),
                 previous_price=round(previous_price, 2),
                 timestamp=ts,
+                session_open=session_open,
             )
             self._prices[ticker] = update
             self._version += 1

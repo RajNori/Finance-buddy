@@ -12,6 +12,8 @@ dependencies = [
     "rich>=13.0.0",
     "litellm>=1.103.1",
     "pydantic>=2.12.5",
+    "sqlalchemy>=2.1.1",
+    "psycopg[binary]>=3.3.6",
 ]
 
 [project.optional-dependencies]
