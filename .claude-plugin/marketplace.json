@@ -1,0 +1,22 @@
+
+{
+  "name": "neo-review",
+  "owner": {
+    "name": "Rajnori",
+    "email": "nori.prototype@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "neo-review",
+      "source": "./neo-review",
+      "description": "Carry out an independent review of all changes since the last commit",
+      "version": "1.0.0",
+      "authors": [
+        {
+          "name": "Rajnori",
+          "email": "nori.prototype@gmail.com"
+        }
+      ]
+    }
+  ]
+}

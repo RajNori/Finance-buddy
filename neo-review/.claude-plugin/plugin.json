@@ -1,0 +1,5 @@
+{
+    "name": "neo-review",
+    "description": "Carry out an independent review of all the changes since last commit",
+    "version": "1.0.0"
+}
