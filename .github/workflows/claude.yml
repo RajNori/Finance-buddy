@@ -66,5 +66,6 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
           claude_args: |
-            --allowed-tools "Bash(uv run pytest:*),Bash(uv run ruff check:*),Bash(uv run ruff format:*),Bash(uv sync:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*)"
+            --append-system-prompt "Backend lives in backend/. Verify with: cd backend && uv run pytest -q && uv run ruff check app/ tests/. Dependencies are already installed via uv sync --extra dev."
+            --allowed-tools "Bash(uv run pytest:*),Bash(uv run --extra dev pytest:*),Bash(uv run --project backend pytest:*),Bash(uv run --project backend --extra dev pytest:*),Bash(uv run ruff check:*),Bash(uv run --extra dev ruff check:*),Bash(uv run --project backend ruff check:*),Bash(uv run ruff format:*),Bash(cd backend:*),Bash(uv sync:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*)"
 
